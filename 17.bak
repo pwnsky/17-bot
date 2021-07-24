@@ -1,0 +1,624 @@
+#!/usr/bin/python
+
+from graia.broadcast import Broadcast
+from graia.application import GraiaMiraiApplication, Session
+from graia.application.message.chain import MessageChain
+from graia.application.message.elements.internal import Plain
+from graia.application.friend import Friend
+from graia.application.group import Group
+from graia.application.entry import *
+from graia.broadcast.entities.event import BaseEvent
+from graia.broadcast.entities.dispatcher import BaseDispatcher
+from graia.broadcast.interfaces.dispatcher import DispatcherInterface
+from graia.application.event import *
+from graia.scheduler import timers
+import graia.scheduler as scheduler
+import asyncio
+import requests
+import threading
+import json
+import urllib.request # 需要安装 urllib 库
+from bs4 import BeautifulSoup #需要安装 bs4 库
+import locale
+import time
+import datetime
+import hashlib
+
+# ----------导入课表-----------
+#import sys
+#sys.path.append("/home/happi0/database")
+#
+#from Schedul_Experimentalr_Class_1 import *
+#from Schedul_Class_2 import *
+#from Schedul_Class_4 import *
+#from Schedul_Class_6 import *
+#from Schedul_Class_20_4 import *
+#from Schedul_Class_20_6 import *
+#from Schedul_Class_5_Software_Engineering import *
+#
+#
+## ----------导入名单---------
+#from id_in_class_2 import *
+#from id_in_class_4 import *
+#from id_in_class_6 import *
+#from id_in_class_20_4 import *
+#from id_in_class_20_6 import *
+#from id_in_class_5_Software_Engineering import *
+#
+# ---------导入模块--------
+#from ct import *
+
+
+# -----------------机器人配置---------------
+loop = asyncio.get_event_loop()
+bcc = Broadcast(loop=loop)
+app = GraiaMiraiApplication(
+    broadcast=bcc,
+    connect_info=Session(
+        host="http://localhost:7777", 
+        authKey="INITKEYIYt76fd4",         
+        account=3202539766,           
+        websocket=True 
+    )
+)
+# -----------------机器人配置-----------------
+ 
+# ------------------获得天气------------------
+def get_weather():
+    weather = ""
+    header = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64;\
+    rv:23.0) Gecko/20100101 Firefox/23.0'}
+    website = "http://www.tianqi.com/chengdu.html"
+    req = urllib.request.Request(url=website, headers=header)
+    page = urllib.request.urlopen(req)
+    html = page.read()
+    soup = BeautifulSoup(html.decode("utf-8"), "html.parser")
+    nodes = soup.find_all('dd')
+    info_list = []
+    for node in nodes:
+        temp = node.get_text()
+        info_list.append(temp)
+
+    weather = info_list[1] + info_list[2] + info_list[3].split('%',-1)[0] + "%"
+
+    return weather 
+# ------------------获得天气------------------
+ 
+# ------------------打印日志------------------
+
+def input_log_file(friend, GRADE, CLASS):
+    log_file = open("./append.log","a")
+    log_file.write("\n" + str(friend.id) + "\t" + GRADE + "\t" + CLASS)
+    log_file.close()
+
+# ------------------打印日志-----------------
+
+# ------------------刷课脚本----------------
+def reply_auto_class(msg):
+    reply = None
+    if "刷课" in msg:
+        try:
+            msg = msg.replace('刷课','').strip()
+            acount,passwd = msg.split()
+            reply = "录入成功,排队中...\n刷课开始和结束时自动通知"
+            auto_file = open("./auto.log","a")
+            auto_file.write("\n\n" + msg + "\n\n")
+            auto_file.close()
+        except:
+            reply = '录入失败,请检查格式:"刷课 帐号 密码"\n示例:\n刷课 123 456\n\n目前只有大二的超星马克思实现了全自动化'
+            
+    return reply
+# ------------------刷课脚本----------------
+
+
+# ------------------藏头诗------------------
+
+def reply_game(msg):
+    reply = None
+    if "藏头诗" in msg:
+        msg = msg.replace("藏头诗","")
+        msg = msg.replace(" ","")
+        reply = Hide().get_ct(msg)
+        print(reply)
+    return reply
+
+
+# ------------------录入信息------------------
+def reply_inpute(msg,friend):
+    reply = None
+    if "录入" in msg:
+        msg = msg.replace("录入","")
+        msg = msg.replace(" ","")
+        try:
+            GRADE = msg.split(":")[1]
+            CLASS = msg.split(":")[2]
+            if friend.id not in list_in_class_2 and friend.id not in list_in_class_4 and friend.id not in list_in_class_20_4 and friend.id not in list_in_class_20_6 not in list_in_class_5_Software_Engineering:
+
+                for _ in range(1):
+
+                    if GRADE == "19" and CLASS == "2":
+                        list_in_class_2.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+                    if GRADE == "19" and CLASS == "4":
+                        list_in_class_4.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+                    if GRADE == "19" and CLASS == "6":
+                        list_in_class_6.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+                    if GRADE == "20" and CLASS == "4":
+                        list_in_class_20_4.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+                    if GRADE == "20" and CLASS == "6":
+                        list_in_class_20_6.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+                    if GRADE == "19" and CLASS == "7":
+                        list_in_class_5_Software_Engineering.append(friend.id)
+                        input_log_file(friend, GRADE, CLASS)
+                        break
+
+        except:
+            reply = '''录入失败
+请检查数据是否合法或者你已经被录入了
+其中冒号为英文冒号
+
+录入标准如下:
+
+录入:年级:班级
+
+举例:
+录入:20:6
+
+Tips: 年级只能为19或20,班级只能为1、2、3、4、5、6中的一个
+实验班无需录入。默认为实验班'''
+        else:
+            reply = "录入成功"
+
+    return reply
+
+# ------------------录入信息------------------
+        
+        
+# ------------------查询课程------------------
+def reply_course(msg,friend):
+    reply = None
+
+    for _ in range(1):
+        if friend.id in list_in_class_20_4:
+            T_class = class_20_4
+            break
+
+        elif friend.id in list_in_class_20_6:
+            T_class = class_20_6
+            break
+
+        elif friend.id in list_in_class_2:
+            T_class = class_2
+            break
+
+        elif friend.id in list_in_class_4:
+            T_class = class_4
+            break
+
+        elif friend.id in list_in_class_6:
+            T_class = class_6
+            print(T_class)
+            break
+
+        elif friend.id in list_in_class_5_Software_Engineering:
+            T_class = class_Software_Engineering
+            break
+
+        else:
+            T_class = class_1s
+
+
+    if "课程" in msg or "课表" in msg:
+        DateTime_now = datetime.datetime.now().weekday()
+
+        WeekDay = ["星期一","星期二", "星期三", "星期四", "星期五"]
+        for Query_Day in WeekDay:
+            if Query_Day in msg:
+                DateTime_now = WeekDay.index(Query_Day)
+
+        reply =  "上午第1、2节课:\n\t\t\t" + T_class[DateTime_now][0] +"\n\n上午第3、4节课:\n\t\t\t" + T_class[DateTime_now][1] + "\n\n下午第1、2节课:\n\t\t\t" + T_class[DateTime_now][2] +"\n\n下午第3、4节课:\n\t\t\t" + T_class[DateTime_now][3] 
+
+    return reply
+# ------------------查询课程------------------
+
+
+# ------------------表达赞美------------------
+def reply_praise(msg):
+    reply = None
+    if "爱" in msg:
+        reply = "你知道吗,我超爱你的哟!"
+
+    elif "宝" in msg:
+        reply = "你是我的宝贝呢!!!!"
+
+    elif "喜欢" in msg or "爱" in msg:
+        reply = "喜欢是什么？就是我对你的情感啊!"
+
+    elif "牛" in msg:
+        reply = "牛？是很厉害的意思吗?那你一定很牛咯!爱你!"
+
+    elif "夸" in msg:
+        reply = "我好想赞美你,奈何我还学习的不够多！多和我说话,我会越来越聪明的喔!"
+
+    elif "对" in msg:
+        reply = "那我是说对咯？嘿嘿"
+
+
+    return reply
+# ------------------表达赞美------------------
+
+
+# ------------------回复天气------------------
+
+def reply_weather(msg):
+    reply = None
+    if "天气" in msg:
+        reply = get_weather()
+    return reply
+
+# ------------------回复天气------------------
+
+
+# ------------------回复名字------------------
+def reply_name(msg):
+    reply = None
+    if "谁" in msg or "名" in msg:
+        reply = "我叫拾柒!!!\n我每天都在成长喔!\n\n有bug或者想要新功能请联系\nQQ:1798934135"
+    return reply
+# ------------------回复名字------------------
+
+
+# ------------------回复问候------------------
+def reply_greetings(msg):
+    reply = None
+    if "安" in msg or "早" in msg or "午" in msg or "晚" in msg :
+        if 6 < time.localtime().tm_hour and time.localtime().tm_hour < 11:
+            reply = "早安"
+
+        if 11 < time.localtime().tm_hour and time.localtime().tm_hour < 17:
+            reply = "下午好"
+
+        if 17 < time.localtime().tm_hour:
+            reply = "晚安"
+
+    return reply
+# ------------------回复问候------------------
+
+
+# ------------------回复翻译------------------
+def reply_translate(msg):
+    reply = None
+    if "翻译" in msg or "fy" in msg or "trans" in msg:
+        msg = msg.split("翻译",1)[1]
+        reply = translate_mode(msg)
+    
+    return reply
+# ------------------回复翻译------------------
+
+
+# ------------------翻译模块------------------
+def sign(content):
+    return hashlib.md5(b"fanyideskweb" + content.encode() + b'0' +   b"Tbh5E8=q6U3EXe+&L[4c@").hexdigest()
+
+def bv():
+    return '0'*32
+
+def translate_mode(content,to_lang = "AUTO"):
+    url = 'http://fanyi.youdao.com/translate_o?smartresult=dict&smartresult=rule'
+
+    data = {
+    "i": content,
+    "from": " AUTO",
+    "to": to_lang,
+    "client": "fanyideskweb",
+    "salt": 0,
+    "sign": sign(content),
+    "bv": bv(),
+    "doctype": "json",
+    "version": "2.1",
+    "keyfrom": "fanyi.web",
+}
+    headers = {
+    "Cookie": "OUTFOX_SEARCH_USER_ID=-611012975@10.108.160.19; OUTFOX_SEARCH_USER_ID_NCOO=1502238594.559761; JSESSIONID=aaansBOJfAYp44C_BS7Ax; ___rl__test__cookies=1609467197005",
+    "Referer": "http://fanyi.youdao.com/",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+}
+    res = requests.post(url,data=data,headers=headers).json()
+    return res['translateResult'][0][0]['tgt']
+# ------------------翻译模块------------------
+
+
+# ------------------监听消息--------------------------
+@bcc.receiver("FriendMessage")
+async def friend_message_listener(message: MessageChain, friend: Friend, app: GraiaMiraiApplication):
+    print(str(friend.id) + " " + friend.nickname + " " + friend.remark)
+    msg = message.asDisplay()
+    rmsg = reply_main(msg,friend=friend)
+    await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+# ------------------监听消息--------------------------
+
+
+# ------------------添加好友--------------------------
+@bcc.receiver("NewFriendRequestEvent")
+async def new_friend_request(event : NewFriendRequestEvent):
+    print(event.nickname + ' 请求添加好友')
+    await event.accept('我是十七')
+# ------------------添加好友--------------------------
+ 
+
+# ------------------回复模块--------------------------
+def reply_main(msg, friend, group = None):
+    reply = None
+    rmsg  = ""
+    for _ in range(1):
+
+        reply = reply_auto_class(msg)
+        if(reply != None):
+            break
+
+        reply = reply_game(msg)
+        if(reply != None):
+            break
+
+        reply = reply_praise(msg)
+        if(reply != None):
+            break
+
+        reply = reply_inpute(msg,friend)
+        if(reply != None):
+            break
+
+        reply = reply_course(msg,friend)
+        if(reply != None):
+            break
+
+        reply = reply_weather(msg)
+        if(reply != None):
+            break
+
+        reply = reply_name(msg)
+        if(reply != None):
+            break
+        
+        reply = reply_translate(msg)
+        if(reply != None):
+            break
+
+        reply = reply_greetings(msg)
+        if(reply != None):
+            break
+
+    rmsg = str(reply)
+
+    if reply == None :
+        rmsg = '''功能:\n
+输入"课表"+ "星期几"来查询你所在的班级的课程!
+
+输入"天气"来查询今天天气!
+输入"录入"来绑定班级!
+输入"翻译" + "句子"来翻译喔!\n
+输入"藏头诗" + "句子"来获取藏头诗喔!\n
+输入"刷课 + 帐号 + 密码" 来实现刷课\n
+每天自动播报课程、天气、课程、提醒早睡早起!\n
+
+举例:
+
+课表        
+课表 星期一 
+藏头诗多喝热水 
+
+(没有被设置的用户默认推送19级实验班的课表)
+***周末查询课程不返回***
+******新增刷课,通过"刷课"关键字触发******'''
+    return rmsg
+# ------------------回复模块--------------------------
+
+
+# -----------------------推送事件--------------------------
+sche = scheduler.GraiaScheduler(loop=loop,broadcast=bcc)
+@sche.schedule(timers.every_custom_seconds(60))
+async def group_push_msg_scheduler():
+
+    rmsg = None
+
+    if(time.localtime().tm_hour == 7 and time.localtime().tm_min > 30 and time.localtime().tm_min < 33):
+
+        rmsg =  '今天天气:' + get_weather() + '\n记得吃早饭喔!\n\n新增功能刷课,通过"刷课"关键字触发\n'
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+        time.sleep(180)
+
+
+    if(time.localtime().tm_hour == 7 and time.localtime().tm_min > 50 and time.localtime().tm_min < 53):
+
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            try:
+                for _ in range(1):
+
+                    if friend.id in list_in_class_20_4:
+                        T_class = class_20_4
+                        break
+
+                    elif friend.id in list_in_class_20_6:
+                        T_class = class_20_6
+                        break
+
+                    elif friend.id in list_in_class_2:
+                        T_class = class_2
+                        break
+
+                    elif friend.id in list_in_class_4:
+                        T_class = class_4
+                        break
+
+                    elif friend.id in list_in_class_6:
+                        T_class = class_6
+                        break
+
+                    elif friend.id in list_in_class_5_Software_Engineering:
+                        T_class = class_Software_Engineering
+                        break
+
+                    else:
+                        T_class = class_1s
+                    
+                rmsg =  '课程名称: ' + T_class[datetime.datetime.now().weekday()][0] 
+                await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+
+            except:
+                continue
+        time.sleep(180)
+
+
+    if(time.localtime().tm_hour == 10 and time.localtime().tm_min > 0 and time.localtime().tm_min < 3  ):
+
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            try:
+                for _ in range(1):
+
+                    if friend.id in list_in_class_20_4:
+                        T_class = class_20_4
+                        break
+
+                    elif friend.id in list_in_class_20_6:
+                        T_class = class_20_6
+                        break
+
+                    elif friend.id in list_in_class_2:
+                        T_class = class_2
+                        break
+
+                    elif friend.id in list_in_class_4:
+                        T_class = class_4
+                        break
+
+                    elif friend.id in list_in_class_6:
+                        T_class = class_6
+                        break
+
+                    elif friend.id in list_in_class_5_Software_Engineering:
+                        T_class = class_Software_Engineering
+                        break
+
+                    else:
+                        T_class = class_1s
+                    
+                rmsg = '课程名称: \n\t\t\t' + T_class[datetime.datetime.now().weekday()][1]
+                await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+
+            except:
+                continue
+        time.sleep(180)
+
+
+
+    if(time.localtime().tm_hour == 13 and time.localtime().tm_min > 30 and time.localtime().tm_min < 33 ):
+
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            try:
+                for _ in range(1):
+
+                    if friend.id in list_in_class_20_4:
+                        T_class = class_20_4
+                        break
+
+                    elif friend.id in list_in_class_20_6:
+                        T_class = class_20_6
+                        break
+
+                    elif friend.id in list_in_class_2:
+                        T_class = class_2
+                        break
+
+                    elif friend.id in list_in_class_4:
+                        T_class = class_4
+                        break
+
+                    elif friend.id in list_in_class_6:
+                        T_class = class_6
+                        break
+
+                    elif friend.id in list_in_class_5_Software_Engineering:
+                        T_class = class_Software_Engineering
+                        break
+
+                    else:
+                        T_class = class_1s
+                    
+                rmsg = '该上课咯!!!\n课程名称: \n\t\t\t' + T_class[datetime.datetime.now().weekday()][2]
+                await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+
+            except:
+                continue
+        time.sleep(180)
+
+
+
+    if(time.localtime().tm_hour == 15 and time.localtime().tm_min > 40 and time.localtime().tm_min < 33  ):
+
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            try:
+                for _ in range(1):
+
+                    if friend.id in list_in_class_20_4:
+                        T_class = class_20_4
+                        break
+
+                    elif friend.id in list_in_class_20_6:
+                        T_class = class_20_6
+                        break
+
+                    elif friend.id in list_in_class_2:
+                        T_class = class_2
+                        break
+
+                    elif friend.id in list_in_class_4:
+                        T_class = class_4
+                        break
+
+                    elif friend.id in list_in_class_6:
+                        T_class = class_6
+                        break
+
+                    elif friend.id in list_in_class_5_Software_Engineering:
+                        T_class = class_Software_Engineering
+                        break
+
+                    else:
+                        T_class = class_1s
+                    
+                rmsg = '课程名称: \n\t\t\t' +  T_class[datetime.datetime.now().weekday()][3]
+                await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+
+            except:
+                continue
+        time.sleep(180)
+
+
+    if(time.localtime().tm_hour == 23 and time.localtime().tm_min > 30 and time.localtime().tm_min < 33):
+        rmsg = "早点睡觉了喔,晚安!"
+        friend_list = await app.friendList()
+        for friend in friend_list:
+            await app.sendFriendMessage(friend, MessageChain(__root__=[Plain( rmsg )]))
+        time.sleep(180)
+
+app.launch_blocking()
